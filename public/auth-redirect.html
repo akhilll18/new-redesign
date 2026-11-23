@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>Signing in…</title></head>
+<body style="font-family: system-ui, sans-serif; color: #3b463f; display: grid; place-items: center; height: 100vh; margin: 0">
+  <p>Finishing sign-in… you can close this window.</p>
+  <script>
+    // OAuth redirect target for Microsoft Teams / Google Meet sign-in (System settings → Video conferencing).
+    // Hands the token back to the PeopleHub window that opened this popup, then closes.
+    (function () {
+      try {
+        if (window.opener) window.opener.postMessage({ type: "peoplehub-oauth", hash: location.hash, search: location.search }, location.origin);
+      } catch (e) {}
+      setTimeout(function () { window.close(); }, 300);
+    })();
+  </script>
+</body>
+</html>

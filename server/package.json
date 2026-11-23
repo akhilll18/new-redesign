@@ -1,0 +1,29 @@
+{
+  "name": "ezy-hr-server",
+  "version": "10.8.0",
+  "private": true,
+  "type": "module",
+  "description": "EZY HR database server: PostgreSQL + high-performance REST API for 10,000 to 10,00,000+ employees",
+  "scripts": {
+    "migrate": "node db/migrate.mjs",
+    "seed:demo": "node db/seed-demo.mjs",
+    "seed:scale": "PG_STATEMENT_TIMEOUT_MS=0 node db/seed-scale.mjs",
+    "start": "node api/server.mjs",
+    "worker": "node api/worker.mjs",
+    "bench": "node bench/bench.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fastify/compress": "^9.3.0",
+    "@fastify/cors": "^11.4.3",
+    "@fastify/static": "^10.1.12",
+    "fastify": "^5.12.8",
+    "pg": "^8.23.1",
+    "pg-copy-streams": "^7.0.0"
+  },
+  "devDependencies": {
+    "autocannon": "^9.0.0"
+  }
+}

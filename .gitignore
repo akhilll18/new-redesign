@@ -1,0 +1,7 @@
+node_modules
+node_modules
+/dist/
+.env
+# Capacitor: web build copied into the native projects
+android/app/src/main/assets/public
+ios/App/App/public

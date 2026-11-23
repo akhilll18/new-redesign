@@ -1,0 +1,24 @@
+{
+  "name": "EZY HR · AI-enabled HRMS by Ezyo",
+  "short_name": "EZY HR",
+  "description": "EZY HR, the AI-enabled HRMS by Ezyo: people, leave, attendance, payroll, local tax and compliance — on web, iOS and Android.",
+  "id": "./",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#15414F",
+  "theme_color": "#15414F",
+  "lang": "en",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "brand/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "brand/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Clock in / attendance", "url": "./#/attendance", "icons": [{ "src": "brand/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Request leave", "url": "./#/leave?new=1", "icons": [{ "src": "brand/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Inbox & notifications", "url": "./#/inbox", "icons": [{ "src": "brand/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

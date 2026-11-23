@@ -1,0 +1,63 @@
+# EZY HR with PostgreSQL. Start: `cp server/.env.example .env`, fill it in, then `docker compose up -d`.
+# Then create your company (one Super Admin login):
+#   docker compose exec api node db/create-company.mjs --tenant acme --name "Acme Pvt Ltd" --country IN \
+#        --owner "Priya Shah" --email priya@acme.in --password "Strong@Pass1" --pin 482913
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ezyhr
+      POSTGRES_USER: ezyhr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    command: >
+      postgres -c shared_buffers=${PG_SHARED_BUFFERS:-2GB} -c effective_cache_size=${PG_CACHE:-6GB} -c work_mem=32MB
+               -c maintenance_work_mem=1GB -c max_wal_size=8GB -c checkpoint_timeout=15min -c max_connections=200
+               -c random_page_cost=1.1 -c effective_io_concurrency=200 -c max_parallel_workers_per_gather=4
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ezyhr -d ezyhr"], interval: 5s, retries: 20 }
+    restart: unless-stopped
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DATABASE_URL: postgres://ezyhr:${POSTGRES_PASSWORD}@db:5432/ezyhr
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 2000
+      DEFAULT_POOL_SIZE: 60
+      AUTH_TYPE: scram-sha-256
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  api:
+    build: { context: ., args: { SITE_URL: "${SITE_URL:-}" } }
+    environment:
+      DATABASE_URL: postgres://ezyhr:${POSTGRES_PASSWORD}@pgbouncer:5432/ezyhr
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      SITE_URL: ${SITE_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-0}
+      WORKER_INLINE: "0"
+      AUTO_MIGRATE: "0"   # the worker migrates (directly on the database, under a lock)
+      PG_POOL_MAX: "20"
+    depends_on: { db: { condition: service_healthy } }
+    ports:
+      - "${API_PORT:-8080}-${API_PORT_MAX:-8089}:8080"   # a port range so several API replicas can start; put a load balancer in front
+    deploy:
+      replicas: ${API_REPLICAS:-1}
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., args: { SITE_URL: "${SITE_URL:-}" } }
+    command: ["node", "api/worker.mjs"]
+    environment:
+      DATABASE_URL: postgres://ezyhr:${POSTGRES_PASSWORD}@db:5432/ezyhr
+      JWT_SECRET: ${JWT_SECRET}
+      PAYROLL_CHUNK: "100000"
+    depends_on: { db: { condition: service_healthy } }
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+    restart: unless-stopped
+
+volumes:
+  pgdata:

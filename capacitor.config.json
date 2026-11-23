@@ -1,0 +1,13 @@
+{
+  "appId": "com.ezyo.hrms",
+  "appName": "EZY HR",
+  "webDir": "dist",
+  "backgroundColor": "#15414F",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false },
+  "ios": { "contentInset": "always", "backgroundColor": "#15414F" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 1200, "backgroundColor": "#15414F", "showSpinner": false, "androidScaleType": "CENTER_INSIDE" },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#15414F" }
+  }
+}

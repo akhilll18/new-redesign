@@ -1,0 +1,87 @@
+{
+  "at": "2026-11-21T05:53:58.434Z",
+  "seconds": 12,
+  "connections": 50,
+  "results": [
+    {
+      "scenario": "Dashboard headcount (10 lakh)",
+      "req_per_sec": 12662,
+      "p50_ms": 3,
+      "p90_ms": 4,
+      "p99_ms": 15,
+      "errors": 0,
+      "total": 151935,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Directory: first page",
+      "req_per_sec": 2593,
+      "p50_ms": 18,
+      "p90_ms": 26,
+      "p99_ms": 37,
+      "errors": 0,
+      "total": 31113,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Directory: name search",
+      "req_per_sec": 63,
+      "p50_ms": 685,
+      "p90_ms": 1114,
+      "p99_ms": 1243,
+      "errors": 0,
+      "total": 760,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Directory: department filter",
+      "req_per_sec": 1567,
+      "p50_ms": 30,
+      "p90_ms": 41,
+      "p99_ms": 51,
+      "errors": 0,
+      "total": 18802,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Approvals inbox (thousands pending)",
+      "req_per_sec": 144,
+      "p50_ms": 326,
+      "p90_ms": 434,
+      "p99_ms": 636,
+      "errors": 0,
+      "total": 1723,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Employee profile lookup",
+      "req_per_sec": 3450,
+      "p50_ms": 13,
+      "p90_ms": 20,
+      "p99_ms": 27,
+      "errors": 0,
+      "total": 41395,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Punch in (single, write)",
+      "req_per_sec": 4560,
+      "p50_ms": 10,
+      "p90_ms": 15,
+      "p99_ms": 21,
+      "errors": 0,
+      "total": 54712,
+      "status_codes": "200"
+    },
+    {
+      "scenario": "Employee app start (bootstrap)",
+      "req_per_sec": 18,
+      "p50_ms": 1053,
+      "p90_ms": 1201,
+      "p99_ms": 1301,
+      "errors": 0,
+      "total": 220,
+      "status_codes": "200"
+    }
+  ]
+}
