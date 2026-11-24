@@ -1,7 +1,7 @@
 // Super Admin: approval workflow per module, leave policy, expense policy, holidays, and the points masters.
-import React, { useRef, useState } from "react";
-import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormGroup, FormControlLabel, IconButton, InputAdornment, InputLabel, MenuItem, Select, Stack, Switch, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
-import { AddRounded, CalendarMonthRounded, DeleteOutlineRounded, SaveRounded, ArrowForwardRounded, AccountTreeRounded } from "@mui/icons-material";
+import React, { useState } from "react";
+import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormGroup, FormControlLabel, IconButton, InputAdornment, InputLabel, MenuItem, Popover, Select, Stack, Switch, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
+import { AddRounded, CalendarMonthRounded, ChevronLeftRounded, ChevronRightRounded, DeleteOutlineRounded, SaveRounded, ArrowForwardRounded, AccountTreeRounded } from "@mui/icons-material";
 import { WorkforcePolicies } from "./OpsSuper.jsx";
 import { useStore } from "../../store/AppStore.jsx";
 import { PageHeader, SectionCard, TableWrap, Mono } from "../../components/kit/UI.jsx";
@@ -143,7 +143,13 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
   const [err, setErr] = useState("");
   const [addingIndex, setAddingIndex] = useState(null);
   const [activeEditIndex, setActiveEditIndex] = useState(null);
-  const dateRefs = useRef([]);
+  const [calendar, setCalendar] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const dateColumn = columns.find((c) => c.type === "date");
   const set = (i, k, v) => {
     setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
     setActiveEditIndex(i);
@@ -156,6 +162,28 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
     return d.getUTCFullYear() === Number(m[3]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[1])
       ? `${m[3]}-${m[2]}-${m[1]}`
       : v;
+  };
+  const openCalendar = (event, i, value) => {
+    const parsed = dateValue(String(value || ""));
+    const match = String(parsed).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const current = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date();
+    setCalendarMonth(new Date(current.getFullYear(), current.getMonth(), 1));
+    setCalendar({ anchorEl: event.currentTarget, rowIndex: i });
+  };
+  const calendarOffset = (calendarMonth.getDay() + 6) % 7;
+  const calendarMonthLength = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+  const calendarDays = Array.from({ length: 42 }, (_, i) => {
+    const day = i - calendarOffset + 1;
+    return day > 0 && day <= calendarMonthLength ? day : null;
+  });
+  const calendarYears = Array.from({ length: 151 }, (_, i) => new Date().getFullYear() + 20 - i);
+  const calendarValue = calendar && dateColumn ? rows[calendar.rowIndex]?.[dateColumn.key] : "";
+  const chooseCalendarDay = (day) => {
+    if (!calendar || !dateColumn) return;
+    const year = calendarMonth.getFullYear();
+    const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
+    set(calendar.rowIndex, dateColumn.key, `${year}-${month}-${String(day).padStart(2, "0")}`);
+    setCalendar(null);
   };
   const save = () => {
     const e = onSave(rows);
@@ -192,7 +220,7 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
           <TableHead><TableRow>{columns.map((c) => <TableCell key={c.key} align={c.type === "number" ? "right" : "left"}>{c.label}</TableCell>)}<TableCell /></TableRow></TableHead>
           <TableBody>
             {rows.map((r, i) => (
-              <TableRow key={`${r[keyField]}-${i}`}>
+              <TableRow key={i}>
                 {columns.map((c) => (
                   <TableCell key={c.key} sx={{ minWidth: c.width || 90 }}>
                     {c.type === "bool" ? (
@@ -202,8 +230,7 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
                     ) : c.type === "date" ? (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.3 }}>
                         <TextField size="small" placeholder="dd-mm-yyyy" value={dateDisplay(r[c.key])} disabled={rowDisabled(i)} onChange={(e) => set(i, c.key, dateValue(e.target.value))} slotProps={{ htmlInput: { maxLength: 10, inputMode: "numeric", style: { fontSize: "0.65rem" } } }} />
-                        <IconButton size="small" aria-label="Choose holiday date" disabled={rowDisabled(i)} onClick={() => dateRefs.current[i]?.showPicker?.()}><CalendarMonthRounded fontSize="small" /></IconButton>
-                        <input ref={(el) => { dateRefs.current[i] = el; }} type="date" disabled={rowDisabled(i)} value={/^\d{4}-\d{2}-\d{2}$/.test(String(r[c.key] || "")) ? r[c.key] : ""} onChange={(e) => set(i, c.key, e.target.value)} aria-label="Holiday date picker" style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+                        <IconButton size="small" aria-label="Choose holiday date" disabled={rowDisabled(i)} onClick={(e) => openCalendar(e, i, r[c.key])}><CalendarMonthRounded fontSize="small" /></IconButton>
                       </Box>
                     ) : c.readOnlyExisting && i < initial.length ? (
                       <Mono>{c.type === "date" ? dateDisplay(r[c.key]) : r[c.key]}</Mono>
@@ -232,6 +259,36 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
           {onNext && <Button variant="outlined" endIcon={<ArrowForwardRounded />} onClick={() => { if (save()) onNext(); }}>Next</Button>}
         </Stack>
       )}
+      <Popover
+        open={!!calendar}
+        anchorEl={calendar?.anchorEl || null}
+        onClose={() => setCalendar(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Box sx={{ width: 292, p: 1.5 }}>
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 1 }}>
+            <IconButton size="small" aria-label="Previous month" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}><ChevronLeftRounded fontSize="small" /></IconButton>
+            <Select size="small" value={calendarMonth.getMonth()} onChange={(e) => setCalendarMonth(new Date(calendarMonth.getFullYear(), Number(e.target.value), 1))} sx={{ flex: 1, fontSize: "0.72rem" }}>
+              {monthNames.map((name, month) => <MenuItem key={name} value={month}>{name}</MenuItem>)}
+            </Select>
+            <Select size="small" value={calendarMonth.getFullYear()} onChange={(e) => setCalendarMonth(new Date(Number(e.target.value), calendarMonth.getMonth(), 1))} sx={{ width: 90, fontSize: "0.72rem" }}>
+              {calendarYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+            </Select>
+            <IconButton size="small" aria-label="Next month" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}><ChevronRightRounded fontSize="small" /></IconButton>
+          </Stack>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 0.25, mb: 0.35 }}>
+            {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => <Typography key={day} sx={{ textAlign: "center", fontSize: "0.6rem", color: "text.secondary", py: 0.35 }}>{day}</Typography>)}
+          </Box>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 0.25 }}>
+            {calendarDays.map((day, i) => {
+              const picked = day && calendarValue === `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              return day
+                ? <Button key={i} size="small" variant={picked ? "contained" : "text"} aria-label={`${monthNames[calendarMonth.getMonth()]} ${day}, ${calendarMonth.getFullYear()}`} onClick={() => chooseCalendarDay(day)} sx={{ minWidth: 0, height: 34, p: 0, borderRadius: "50%", fontSize: "0.68rem" }}>{day}</Button>
+                : <Box key={i} sx={{ height: 34 }} />;
+            })}
+          </Box>
+        </Box>
+      </Popover>
     </SectionCard>
   );
 }

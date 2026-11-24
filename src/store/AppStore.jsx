@@ -27,7 +27,7 @@ import { makeAutomationActions } from "./automationActions.js";
 import { enrichBgvCase } from "../data/seedBgvTracking.js";
 import { ALL, allowedEntities, scopeData, scopeLocationIds, defaultEntityFor } from "../data/entities.js";
 import { CONTRACT_COMPONENT_CODES, LOCAL_COMPONENT_CODES } from "../data/payslipFields.js";
-import { setStatutoryDirectory, canSwitchEntity } from "../lib/statutory.js";
+import { setStatutoryDirectory, canSwitchEntity, adminKind } from "../lib/statutory.js";
 import { isoDate, setExportContext } from "../lib/utils.js";
 import { validateEmployee, isContingent, monthlyEquivalent, workerTypeOf, REGIONS } from "../data/employeeFields.js";
 import { leaveTypesFor, holidaysFor, withCountryData } from "../country/countryPacks.js";
@@ -990,13 +990,24 @@ export function AppStoreProvider({ children }) {
       if (Object.keys(v.errors).length) return { ok: false, errors: v.errors, itemErrors: v.itemErrors };
       return mutate((x) => {
         const now = nowIso();
-        // Screen-off claims are approved by the reporting manager only (HR admin when there is no manager).
-        // v10.11: the chain is a list of steps (e.g. manager → IT admin → HR admin → Finance admin).
-        const plan = chainSteps(x.settings.workflow?.[type] || defaultChain(type), type);
-        // v10.13: confidential forms (grievance / speak-up) never go to the reporting manager
-        const mgr = plan.some((st) => st.level === "manager") && !FORM_TYPES[type]?.confidential ? activeManager(x, me) : null;
-        let adminPlan = plan.filter((st) => st.level === "admin");
-        if (!adminPlan.length && !mgr) adminPlan = chainSteps("admin", type); // no manager available → the module admin
+        // Standard requests require manager then HR approval; confidential forms remain HR-only.
+        // Additional configured approvers follow the required HR step.
+        const confidential = !!FORM_TYPES[type]?.confidential;
+        let mgr = null;
+        let otherAdminSteps = [];
+        if (!confidential) {
+          if (!me.reporting_manager) return { ok: false, error: "Assign a reporting manager before submitting this request; both manager and HR approval are required." };
+          mgr = activeManager(x, me);
+          if (!mgr) return { ok: false, error: "No active reporting manager is available. Assign an active manager before submitting this request." };
+          const configuredPlan = chainSteps(x.settings.workflow?.[type] || defaultChain(type), type);
+          const configuredAdmins = configuredPlan.filter((st) => st.level === "admin");
+          const isHrStep = (st) => st.role === "hr" || ["accounts", "leave", "attendance"].includes(st.module);
+          otherAdminSteps = configuredAdmins.filter((st) => !isHrStep(st));
+        }
+        const hrApprover = adminFor(x, me.department, "accounts");
+        if (!hrApprover) return { ok: false, error: "No active HR Admin approver is available for your department." };
+        const hrStep = { level: "admin", role: "hr", module: "accounts", label: "HR admin" };
+        const adminPlan = [hrStep, ...otherAdminSteps];
         const adminSteps = adminPlan.map((st, i) => ({ level: "admin", role: st.role || null, module: st.module, approver: adminFor(x, me.department, st.module), status: !mgr && i === 0 ? "pending" : "waiting", at: null, note: "" }));
         const adminCode = adminSteps[0]?.approver || null;
         const id = nextSeq(x.requests.filter((r) => r.type === type), REQUEST_TYPES[type].prefix, "request_id");
@@ -1504,17 +1515,23 @@ export function AppStoreProvider({ children }) {
     [session, mutate],
   );
   const setUserStatus = useCallback(
-    (role, code, status) =>
-      mutate((x) => {
+    (role, code, status) => {
+      const hrAdmin = session?.role === "admin" && ["hr", "hr_finance"].includes(adminKind(user));
+      if (session?.role !== "superadmin" && !(hrAdmin && role === "emp" && ["active", "suspended"].includes(status))) {
+        return { ok: false, error: "HR Admins may only activate or suspend employee accounts." };
+      }
+      return mutate((x) => {
         const r = listFor(x, role).find((u) => codeOf(role, u) === code);
+        if (!r) return { ok: false, error: "Account not found." };
         const prev = r.status;
         r.status = status;
         if (status === "active") r.failed_attempts = 0;
-        pushAudit(x, session.code, "superadmin", status === "active" && prev === "locked" ? "ACCOUNT_UNLOCK" : "STATUS_OVERRIDE", `${code}: ${prev} → ${status}`);
+        pushAudit(x, session.code, session.role, status === "active" && prev === "locked" ? "ACCOUNT_UNLOCK" : "STATUS_OVERRIDE", `${code}: ${prev} → ${status}`);
         const moved = role === "admin" ? rerouteSteps(x) : [];
         return { ok: true, moved };
-      }),
-    [session, mutate],
+      });
+    },
+    [session, user, mutate],
   );
   const forceReset = useCallback(
     async (role, code) => {

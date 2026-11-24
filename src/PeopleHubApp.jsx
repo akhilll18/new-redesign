@@ -185,6 +185,7 @@ export default function PeopleHubApp() {
   const [dialog, setDialog] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [employeeForm, setEmployeeForm] = useState(false);
+  const [employeeRecord, setEmployeeRecord] = useState(null);
   const [homeView, setHomeView] = useState(() => load(`${code}-home-view`, "glass"));
   useEffect(() => { save(`${code}-home-view`, homeView); }, [homeView, code]);
 
@@ -267,7 +268,18 @@ export default function PeopleHubApp() {
 
   function pageAction(type, data2) {
     if (type === "leave") return go("/leave?new=1");
-    if (type === "employee") return canManagePeople ? setEmployeeForm(true) : notifyToast("Only HR can add employees.", "info");
+    if (type === "employee") {
+      if (!canManagePeople) return notifyToast("Only HR can add employees.", "info");
+      setEmployeeRecord(null);
+      return setEmployeeForm(true);
+    }
+    if (type === "person" && canManagePeople) {
+      const rec = data.employees.find((e) => e.employee_code === data2.id);
+      if (rec) {
+        setEmployeeRecord(rec);
+        return setEmployeeForm(true);
+      }
+    }
     return setDialog({ type, data: data2 });
   }
 
@@ -440,7 +452,7 @@ export default function PeopleHubApp() {
       // v10.5: My team → All approvals (reporting managers)
       "team-approvals": (
         <>
-          <PageHeader title="All approvals" subtitle="Leave, expense, advance, loan, attendance correction, screen-off and points requests from your team that wait for you." />
+          <PageHeader title="Approvals" subtitle="Requests from your direct reports that are waiting for your decision." />
           <ApprovalsPage mode="manager" />
         </>
       ),
@@ -464,6 +476,7 @@ export default function PeopleHubApp() {
     },
     superadmin: {
       super: <><PlanCard /><EnterpriseHeadcount /><OpsGlassHome view={homeView} onView={setHomeView} classic={<><CelebrationsCard glass={false} /><SuperDashboard /></>} /></>,
+      approvals: <InboxHub tab="inbox" />,
       geofences: <GeofencesDevices />,
       monitoring: <MonitoringTab><MonitoringBody /></MonitoringTab>,
       "monitoring-policy": <MonitoringPolicy />,
@@ -504,7 +517,7 @@ export default function PeopleHubApp() {
         {content}
       </PortalShell>
       <PortalDialog dialog={dialog} onClose={() => setDialog(null)} onSubmit={submitAction} departments={departments} onDeleteEmployee={canManagePeople ? (person) => setDialog({ type: "delete-employee", data: person }) : undefined} />
-      <EmployeeFormDialog open={employeeForm} rec={null} onClose={() => setEmployeeForm(false)} />
+      <EmployeeFormDialog open={employeeForm} rec={employeeRecord} onClose={() => { setEmployeeForm(false); setEmployeeRecord(null); }} />
       <ToastHost />
       <AiLayer />
     </>

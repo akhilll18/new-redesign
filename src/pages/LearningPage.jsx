@@ -25,7 +25,7 @@ const categories = [
   "Role training",
 ];
 
-export default function LearningPage({ videos, onUpload, onDelete, canUpload = true, embedded = false }) {
+export default function LearningPage({ videos = [], onUpload, onDelete, canUpload = true, embedded = false }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(categories[0]);
@@ -81,157 +81,159 @@ export default function LearningPage({ videos, onUpload, onDelete, canUpload = t
         description="Training videos and resources to help you grow in your role."
       />}
 
-      {/* ── 30% / 70% SIDE-BY-SIDE LAYOUT ── */}
+      {/* ── SIDE-BY-SIDE LAYOUT ── */}
       <Box
         sx={{
           display: "flex",
-          flexDirection: { xs: "column", lg: "row" }, // Stack on small screens, side-by-side on large
+          flexDirection: { xs: "column", lg: "row" }, 
           gap: 2,
           alignItems: "flex-start",
         }}
       >
-        {/* LEFT CONTAINER: 30% Admin Upload */}
-        <Box sx={{ width: { xs: "100%", lg: "30%" }, flexShrink: 0, display: canUpload ? "block" : "none" }}>
-          <Panel
-            title="Admin upload"
-            subtitle="Add an image or video to the library"
-          >
-            <Box
-              component="form"
-              onSubmit={submitVideo}
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-                p: 2,
-              }}
+        {/* LEFT CONTAINER: Admin Upload (Only visible if canUpload is true) */}
+        {canUpload && (
+          <Box sx={{ width: { xs: "100%", lg: "30%" }, flexShrink: 0 }}>
+            <Panel
+              title="Admin upload"
+              subtitle="Add an image or video to the library"
             >
-              <TextField
-                label="Title"
-                required
-                size="small"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
+              <Box
+                component="form"
+                onSubmit={submitVideo}
                 sx={{
-                  "& .MuiInputBase-root, & .MuiInputLabel-root": {
-                    fontSize: "0.75rem",
-                  },
-                }}
-              />
-
-              <TextField
-                select
-                label="Category"
-                size="small"
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                sx={{
-                  "& .MuiInputBase-root, & .MuiInputLabel-root": {
-                    fontSize: "0.75rem",
-                  },
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  p: 2,
                 }}
               >
-                {categories.map((item) => (
-                  <MenuItem key={item} value={item} sx={{ fontSize: "0.75rem" }}>
-                    {item}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              <TextField
-                label="Description"
-                multiline
-                minRows={3}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                sx={{
-                  "& .MuiInputBase-root, & .MuiInputLabel-root": {
-                    fontSize: "0.75rem",
-                  },
-                }}
-              />
-
-              {/* File picker area */}
-              <Stack spacing={1.5}>
-                <input
-                  ref={fileInput}
-                  hidden
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={handleFileChange}
-                />
-                <Typography
-                  sx={{ fontSize: "0.65rem", fontWeight: 600, color: "#4d594f" }}
-                >
-                  Upload image or video
-                </Typography>
-                
-                {/* Preview Box */}
-                <Box
+                <TextField
+                  label="Title"
+                  required
+                  size="small"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
                   sx={{
-                    width: "100%",
-                    aspectRatio: "16 / 9",
-                    borderRadius: 1,
-                    background: "#f0f4f0",
-                    border: "1px dashed #c9d5ca",
-                    overflow: "hidden",
-                    display: "grid",
-                    placeItems: "center",
+                    "& .MuiInputBase-root, & .MuiInputLabel-root": {
+                      fontSize: "0.75rem",
+                    },
+                  }}
+                />
+
+                <TextField
+                  select
+                  label="Category"
+                  size="small"
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  sx={{
+                    "& .MuiInputBase-root, & .MuiInputLabel-root": {
+                      fontSize: "0.75rem",
+                    },
                   }}
                 >
-                  {filePreview ? (
-                    file?.type.startsWith("image/") ? (
-                      <Box
-                        component="img"
-                        src={filePreview}
-                        alt="Preview"
-                        sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
+                  {categories.map((item) => (
+                    <MenuItem key={item} value={item} sx={{ fontSize: "0.75rem" }}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  label="Description"
+                  multiline
+                  minRows={3}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  sx={{
+                    "& .MuiInputBase-root, & .MuiInputLabel-root": {
+                      fontSize: "0.75rem",
+                    },
+                  }}
+                />
+
+                {/* File picker area */}
+                <Stack spacing={1.5}>
+                  <input
+                    ref={fileInput}
+                    hidden
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleFileChange}
+                  />
+                  <Typography
+                    sx={{ fontSize: "0.65rem", fontWeight: 600, color: "#4d594f" }}
+                  >
+                    Upload image or video
+                  </Typography>
+                  
+                  {/* Preview Box */}
+                  <Box
+                    sx={{
+                      width: "100%",
+                      aspectRatio: "16 / 9",
+                      borderRadius: 1,
+                      background: "#f0f4f0",
+                      border: "1px dashed #c9d5ca",
+                      overflow: "hidden",
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                  >
+                    {filePreview ? (
+                      file?.type.startsWith("image/") ? (
+                        <Box
+                          component="img"
+                          src={filePreview}
+                          alt="Preview"
+                          sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <video
+                          src={filePreview}
+                          muted
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      )
                     ) : (
-                      <video
-                        src={filePreview}
-                        muted
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    )
-                  ) : (
-                    <Stack spacing={0.5} sx={{ alignItems: "center" }}>
-                      <ImageIcon sx={{ color: "#9daf9e", fontSize: 28 }} />
-                      <MovieIcon sx={{ color: "#9daf9e", fontSize: 28 }} />
-                    </Stack>
-                  )}
-                </Box>
+                      <Stack spacing={0.5} sx={{ alignItems: "center" }}>
+                        <ImageIcon sx={{ color: "#9daf9e", fontSize: 28 }} />
+                        <MovieIcon sx={{ color: "#9daf9e", fontSize: 28 }} />
+                      </Stack>
+                    )}
+                  </Box>
+
+                  <Button
+                    variant="secondary"
+                    icon={UploadFile}
+                    onClick={() => fileInput.current?.click()}
+                    sx={{ justifyContent: "flex-start", width: "fit-content" }}
+                  >
+                    {file ? file.name : "Choose a file"}
+                  </Button>
+                  
+                  <Typography
+                    sx={{ color: "#89948c", fontSize: "0.6rem" }}
+                  >
+                    JPG, PNG, WebP, MP4, WebM · Up to 2 MB in this demo.
+                  </Typography>
+                </Stack>
 
                 <Button
-                  variant="secondary"
-                  icon={UploadFile}
-                  onClick={() => fileInput.current?.click()}
-                  sx={{ justifyContent: "flex-start", width: "fit-content" }}
+                  type="submit"
+                  icon={School}
+                  disabled={!file}
+                  sx={{ mt: 1 }}
                 >
-                  {file ? file.name : "Choose a file"}
+                  Upload to library
                 </Button>
-                
-                <Typography
-                  sx={{ color: "#89948c", fontSize: "0.6rem" }}
-                >
-                  JPG, PNG, WebP, MP4, WebM · Up to 2 MB in this demo.
-                </Typography>
-              </Stack>
+              </Box>
+            </Panel>
+          </Box>
+        )}
 
-              <Button
-                type="submit"
-                icon={School}
-                disabled={!file}
-                sx={{ mt: 1 }}
-              >
-                Upload to library
-              </Button>
-            </Box>
-          </Panel>
-        </Box>
-
-        {/* RIGHT CONTAINER: 70% Training Library */}
-        <Box sx={{ width: { xs: "100%", lg: "70%" }, flexGrow: 1 }}>
+        {/* RIGHT CONTAINER: Training Library (Expands to 100% if canUpload is false) */}
+        <Box sx={{ width: { xs: "100%", lg: canUpload ? "70%" : "100%" }, flexGrow: 1 }}>
           <Panel
             title="Training library"
             subtitle={`${videos.length} item${videos.length === 1 ? "" : "s"} available`}
@@ -243,8 +245,8 @@ export default function LearningPage({ videos, onUpload, onDelete, canUpload = t
                   display: "grid",
                   gridTemplateColumns: {
                     xs: "1fr",
-                    sm: "repeat(2, minmax(0, 1fr))", // 2 columns on tablet
-                    xl: "repeat(3, minmax(0, 1fr))", // 3 columns on very wide screens
+                    sm: "repeat(2, minmax(0, 1fr))", 
+                    xl: "repeat(3, minmax(0, 1fr))", 
                   },
                   gap: 1.5,
                   p: 1.8,
@@ -376,9 +378,9 @@ export default function LearningPage({ videos, onUpload, onDelete, canUpload = t
                       <Box sx={{ p: 1.5 }}>
                         <Stack
                           direction="row"
-                         
-                         
-                          spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                          spacing={1} 
+                          sx={{ justifyContent: "space-between", alignItems: "flex-start" }}
+                        >
                           <Box sx={{ minWidth: 0 }}>
                             <Typography
                               sx={{
@@ -400,17 +402,21 @@ export default function LearningPage({ videos, onUpload, onDelete, canUpload = t
                               {video.category} · Added {video.uploaded}
                             </Typography>
                           </Box>
-                          <IconButton
-                            size="small"
-                            aria-label={`Delete ${video.title}`}
-                            onClick={() => onDelete(video.id)}
-                            sx={{
-                              color: "#a54e45",
-                              "&:hover": { background: "#f7eded" },
-                            }}
-                          >
-                            <Delete sx={{ fontSize: 17 }} />
-                          </IconButton>
+                          
+                          {/* Only Admins can delete */}
+                          {canUpload && (
+                            <IconButton
+                              size="small"
+                              aria-label={`Delete ${video.title}`}
+                              onClick={() => onDelete(video.id)}
+                              sx={{
+                                color: "#a54e45",
+                                "&:hover": { background: "#f7eded" },
+                              }}
+                            >
+                              <Delete sx={{ fontSize: 17 }} />
+                            </IconButton>
+                          )}
                         </Stack>
                         {video.description && (
                           <Typography
@@ -500,12 +506,10 @@ function MediaPreviewDialog({ item, onClose }) {
       >
         <Stack
           direction="row"
-         
-         
           sx={{ justifyContent: "space-between", alignItems: "center", p: 1.5, borderBottom: "1px solid #edf0ec" }}
         >
           <Typography
-            sx={{  fontWeight: 700, fontSize: "0.85rem" }}
+            sx={{ fontWeight: 700, fontSize: "0.85rem" }}
           >
             {item.title}
           </Typography>

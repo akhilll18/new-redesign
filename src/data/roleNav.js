@@ -92,8 +92,8 @@ export const ROLE_NAV = {
       { id: "my-exit", label: "Resignation & exit", icon: "ExitToApp" },
     ] },
     { group: "MY TEAM", managerOnly: true, items: [
+      { id: "team-approvals", label: "Approvals", icon: "FactCheck", badge: "inbox" },
       { id: "team-hub", label: "My team", icon: "Groups", badges: ["inbox"], tabs: [
-        { id: "team-approvals", label: "All approvals", badge: "inbox" },
         // v10.6: team calendar (names on each day) and team activity are part of the team summary.
         { id: "team", label: "Team summary", alias: ["team-activity"] },
         { id: "team-live", label: "Live location" },
@@ -108,6 +108,7 @@ export const ROLE_NAV = {
       // v10.7: every admin also works as an employee — My employee space ↔ Back to admin workspace.
       { id: "switch-emp", label: "My employee space", icon: "SwitchAccount", action: "switch-emp", when: hasLinkedEmployee },
       { id: "admin", label: "Dashboard", icon: "Dashboard" },
+      { id: "approvals", label: "Approvals", icon: "FactCheck", badge: "inbox-all" },
       // v10.8: whole-company screens on the database (server mode only)
       { id: "enterprise-hub", label: "Enterprise data", icon: "Hub", when: ({ data }) => !!data?.__server, tabs: [
         { id: "ent-directory", label: "Employee directory", when: ({ data }) => !!data?.__server },
@@ -117,7 +118,7 @@ export const ROLE_NAV = {
       ] },
       // v10.6: inbox, all approvals and notifications merged into one screen.
       { id: "inbox-hub", label: "Inbox & notifications", icon: "Inbox", badges: ["inbox-all", "it-buy", "emp-req", "notes"], tabs: [
-        { id: "inbox", label: "Inbox · approvals", alias: ["approvals"], badge: "inbox-all" },
+        { id: "inbox", label: "Inbox · approvals", badge: "inbox-all" },
         { id: "it-purchase", label: "IT purchases", badge: "it-buy", when: ({ user }) => adminKind(user) !== "it" },
         { id: "emp-requests", label: "Employee requests", badge: "emp-req", modules: ["accounts"] },
         { id: "notifications", label: "Notifications", badge: "notes" },
@@ -220,6 +221,7 @@ export const ROLE_NAV = {
     { group: "CONTROL", items: [
       { id: "switch-emp", label: "My employee space", icon: "SwitchAccount", action: "switch-emp", when: hasLinkedEmployee },
       { id: "super", label: "Dashboard", icon: "Dashboard" },
+      { id: "approvals", label: "Approvals", icon: "FactCheck", badge: "inbox-all" },
       // v10.8: whole-company screens on the database (server mode only)
       { id: "enterprise-hub", label: "Enterprise data", icon: "Hub", when: ({ data }) => !!data?.__server, tabs: [
         { id: "ent-directory", label: "Employee directory", when: ({ data }) => !!data?.__server },

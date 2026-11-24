@@ -12,13 +12,16 @@ import { BgvChip, useBgvLookup } from "../../components/collab/BgvViews.jsx";
 import { EMPLOYEE_SECTIONS, ALL_FIELDS, COUNTRIES, WORKER_TYPES, WORKER_TYPE_BY, ON_PAYROLL, workerTypeOf, workerDefaults, isContingent, monthlyEquivalent, fieldApplies, sectionApplies, workerLabel, validateEmployee } from "../../data/employeeFields.js";
 import { fmtDate, fmtNum, downloadCsv, isoDate } from "../../lib/utils.js";
 import { sectionsWithCustom, customFieldList } from "../../lib/customFields.js";
+import { adminKind } from "../../lib/statutory.js";
 
 const FX = { INR: 1, GBP: 112, USD: 88, AED: 24, SGD: 68 };
 const newRecord = () => ({ worker_type: "permanent", country_code: "IN", region: "TG", city: "Hyderabad", employment_type: "full_time", fte: "1", pay_cycle: "monthly", tax_regime: "new", leave_policy: "standard", expense_policy: "standard", shift: "general", probation_status: "in_probation", background_check: "pending", right_to_work: "pending", notice_period: "60", date_of_joining: isoDate(), bank_name: "", grade_code: "P1" });
 
 export function EmployeeFormDialog({ open, rec, onClose }) {
-  const { data, user, upsertEmployee, createContractFromEmployee, notifyToast, entityAccess } = useStore();
+  const { data, user, upsertEmployee, setUserStatus, createContractFromEmployee, notifyToast, entityAccess } = useStore();
   const isNew = !rec?.employee_code;
+  const isHrAdmin = user.role === "admin" && ["hr", "hr_finance"].includes(adminKind(user));
+  const canManageStatus = !isNew && isHrAdmin;
   const [form, setForm] = useState(() => rec || newRecord());
   const [tab, setTab] = useState("core");
   const [errors, setErrors] = useState({});
@@ -33,7 +36,7 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
       setPersonalConfirmation("");
     }
   }, [open, rec]);
-  const role = user.role === "superadmin" ? "super" : "admin";
+  const role = user.role === "superadmin" || isHrAdmin ? "super" : "admin";
   const ctx = { orgUnits: data.orgUnits, employees: data.employees, geofences: data.geofences || [], vendors: data.contractVendors || [], companies: entityAccess?.companies || data.companies || [], locations: entityAccess?.locations || data.workLocations || [], lockCountry: data.settings.lock_country_to_location };
   const sections = sectionsWithCustom(data).filter((s) => sectionApplies(s, form)); // v10.15: + dropdowns the Super Admin created
   const sec = sections.find((s) => s.id === tab) || sections[0];
@@ -52,6 +55,8 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
 
   function save() {
     const payload = { ...form };
+    const statusChanged = canManageStatus && form.status !== rec.status;
+    if (statusChanged) delete payload.status;
     delete payload.annual_ctc;
     delete payload.personal_mobile;
     if (payload.pan) payload.pan = String(payload.pan).trim().toUpperCase();
@@ -85,6 +90,13 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
       if (first) setTab(first.id);
       if (sec.id === "core") setPersonalConfirmation("");
       return;
+    }
+    if (statusChanged) {
+      const statusResult = setUserStatus("emp", r.code, form.status);
+      if (!statusResult?.ok) {
+        notifyToast(statusResult?.error || "Could not update employee status.", "error");
+        return;
+      }
     }
     let extra = "";
     if (isContingent(payload) && mkContract && !hasContract) {
@@ -158,6 +170,13 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
               return <TextField key={f.key} label={f.label} value={`₹${fmtNum(Math.round(monthly * 12 * (FX[cur] || 1)))}`} disabled helperText={contingent ? "12 × monthly-equivalent contract cost" : f.rule} />;
             }
             if (f.key === "employee_code") return <TextField key={f.key} label={f.label} value={form.employee_code || "Assigned on save"} disabled helperText=" " />;
+            if (f.key === "status" && canManageStatus) return (
+              <TextField key={f.key} select label={f.label} value={form.status} onChange={(e) => setForm((x) => ({ ...x, status: e.target.value }))}>
+                {!["active", "suspended"].includes(form.status) && <MenuItem value={form.status}>{form.status.replaceAll("_", " ")}</MenuItem>}
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="suspended">Suspended</MenuItem>
+              </TextField>
+            );
             if (f.key === "status") return <TextField key={f.key} label={f.label} value={form.status || "pending_approval (new)"} disabled helperText="Change it from Users & access" />;
             const editable = isNew ? true : f.editableBy.includes(role) || (role === "super" && f.editableBy.length > 0);
             return (
