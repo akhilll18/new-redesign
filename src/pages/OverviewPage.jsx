@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
 import { useStore } from "../store/AppStore.jsx";
 import { isZeroLeaveWorker } from "../lib/statutory.js";
@@ -71,11 +70,7 @@ export default function OverviewPage({
   departmentCount = 0,
   attendanceRecords = [],
 }) {
-  const { data, user, leaveBalanceOf, reportsOf, pendingForManager } = useStore();
-  const routerNav = useNavigate();
-  // v10.5: reporting managers get an "Approvals pending" box; other employees don't.
-  const isMgr = user.role === "emp" && reportsOf(user.employee_code).some((x) => x.status === "active");
-  const pendMgr = isMgr ? pendingForManager(user.employee_code) : { requests: [], points: [] };
+  const { data, user, leaveBalanceOf } = useStore();
   const [mtgOpen, setMtgOpen] = useState(false);
   const mtg = useMeetingsBox();
   const meRec = data.employees.find((e) => e.employee_code === user.employee_code);
@@ -386,16 +381,6 @@ export default function OverviewPage({
           tone="rose"
           onClick={() => onNavigate("timeoff")}
         />
-        {isMgr && (
-          <StatCard
-            label="Approvals pending"
-            value={String(pendMgr.requests.length + pendMgr.points.length).padStart(2, "0")}
-            note="My team → All approvals"
-            icon={Clock3}
-            tone="orange"
-            onClick={() => routerNav("/team-approvals")}
-          />
-        )}
         <StatCard
           label="Meetings today"
           value={String(mtg.count).padStart(2, "0")}

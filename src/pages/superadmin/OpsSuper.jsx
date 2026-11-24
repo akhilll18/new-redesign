@@ -1,7 +1,7 @@
 // Super Admin: geofences & biometric devices, monitoring policy, workforce policies, territory, compliance, HR analytics.
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { AddRounded, DeleteOutlineRounded, EditRounded, SaveRounded, DeleteSweepRounded } from "@mui/icons-material";
+import { AddRounded, ArrowForwardRounded, DeleteOutlineRounded, EditRounded, SaveRounded, DeleteSweepRounded } from "@mui/icons-material";
 import { useStore } from "../../store/AppStore.jsx";
 import { PageHeader, SectionCard, StatCard, Grid, Tag, TableWrap, Mono, PersonCell, BarChart, HBar, KeyVal } from "../../components/kit/UI.jsx";
 import LiveMap from "../../components/glass/LiveMap.jsx";
@@ -14,23 +14,28 @@ import { useCountry, preferCountry, useCountryChoice } from "../../country/Count
 const COUNTRY_NAME = { IN: "India", GB: "United Kingdom", US: "United States", AE: "UAE", SG: "Singapore", NA: "Namibia", ZA: "South Africa", KE: "Kenya", NG: "Nigeria", BW: "Botswana", CA: "Canada", MX: "Mexico", BR: "Brazil", DE: "Germany", FR: "France", IE: "Ireland", SA: "Saudi Arabia", MY: "Malaysia", PH: "Philippines", ID: "Indonesia", GH: "Ghana", ZM: "Zambia" };
 
 // ─── Settings form used by the policy pages ───
-export function SettingsForm({ title, subtitle, fields }) {
+export function SettingsForm({ title, subtitle, fields, onNext, policyActions = false }) {
   const { data, updateSettings, notifyToast } = useStore();
   const [f, setF] = useState(() => Object.fromEntries(fields.map((x) => [x.key, data.settings[x.key]])));
   const [err, setErr] = useState("");
   const dirty = fields.some((x) => JSON.stringify(f[x.key]) !== JSON.stringify(data.settings[x.key]));
   function save() {
     for (const x of fields) {
-      if (x.type === "number" && !(Number(f[x.key]) >= (x.min ?? 0) && Number(f[x.key]) <= (x.max ?? 1e9))) return setErr(`${x.label} must be between ${x.min ?? 0} and ${x.max}.`);
-      if (x.type === "time" && !/^\d{2}:\d{2}$/.test(f[x.key] || "")) return setErr(`${x.label} must be a time like 09:30.`);
+      if (x.type === "number" && !(Number(f[x.key]) >= (x.min ?? 0) && Number(f[x.key]) <= (x.max ?? 1e9))) { setErr(`${x.label} must be between ${x.min ?? 0} and ${x.max}.`); return false; }
+      if (x.type === "time" && !/^\d{2}:\d{2}$/.test(f[x.key] || "")) { setErr(`${x.label} must be a time like 09:30.`); return false; }
     }
     setErr("");
     const patch = Object.fromEntries(fields.map((x) => [x.key, x.type === "number" ? Number(f[x.key]) : f[x.key]]));
     const r = updateSettings(patch);
     notifyToast(r.changed ? `${title} saved (${r.changed} change${r.changed > 1 ? "s" : ""}).` : "No changes to save.");
+    return true;
   }
   return (
-    <SectionCard title={title} subtitle={subtitle} action={<Button size="small" variant="contained" startIcon={<SaveRounded />} disabled={!dirty} onClick={save}>Save</Button>}>
+    <SectionCard title={title} subtitle={subtitle} action={policyActions ? <Stack direction="row" spacing={0.5}>
+      <Button size="small" color="inherit" onClick={() => { setF(Object.fromEntries(fields.map((x) => [x.key, data.settings[x.key]]))); setErr(""); }}>Cancel</Button>
+      <Button size="small" variant="contained" startIcon={<SaveRounded />} disabled={!dirty} onClick={save}>Save</Button>
+      {onNext && <Button size="small" variant="outlined" endIcon={<ArrowForwardRounded />} onClick={() => { if (save()) onNext(); }}>Next</Button>}
+    </Stack> : <Button size="small" variant="contained" startIcon={<SaveRounded />} disabled={!dirty} onClick={save}>Save</Button>}>
       {err && <Alert severity="error" sx={{ mb: 1.5 }}>{err}</Alert>}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "1fr 1fr 1fr" }, gap: 2 }}>
         {fields.map((x) => (
@@ -220,39 +225,51 @@ export function MonitoringPolicy() {
 }
 
 // ─── Workforce policies (attendance, calls, assets, performance) ───
-export function WorkforcePolicies() {
+export function WorkforcePolicies({ onNext }) {
   return (
     <Stack spacing={2.5}>
-      <SettingsForm
-        title="Attendance & geofencing"
-        subtitle="Shift timing, lateness, and how punches outside a geofence are handled"
-        fields={[
-          { key: "shift_start", label: "Shift starts", type: "time" },
-          { key: "late_after", label: "Late after", type: "time" },
-          { key: "shift_hours", label: "Shift hours (overtime above)", type: "number", min: 4, max: 12 },
-          { key: "geofence_enforcement", label: "Outside a geofence", type: "select", options: [["block", "Block the punch"], ["flag", "Allow and flag for the manager"], ["allow", "Allow silently"]] },
-          { key: "selfie_required_geo", label: "Selfie with web/mobile punches", type: "bool" },
-          { key: "biometric_device_verification", label: "Device biometric (fingerprint / face) on mobile", type: "bool" },
-          { key: "regularize_window_days", label: "Corrections allowed for (days)", type: "number", min: 1, max: 31 },
-        ]}
-      />
-      <SettingsForm
-        title="Team call tracker"
-        subtitle="Targets for sales and support staff with call tracking switched on"
-        fields={[
-          { key: "call_daily_target", label: "Calls a day", type: "number", min: 1, max: 300 },
-          { key: "call_talk_target_min", label: "Talk time a day (min)", type: "number", min: 1, max: 480 },
-          { key: "call_source", label: "Call source", type: "select", options: [["mobile_app", "Mobile app call log"], ["telephony", "Cloud telephony"], ["manual", "Manual entry"]] },
-        ]}
-      />
-      <SettingsForm
-        title="Assets, performance & benefits"
-        fields={[
-          { key: "asset_depreciation_years", label: "Depreciate assets over (years)", type: "number", min: 1, max: 10 },
-          { key: "merit_budget_pct", label: "Merit budget (% of payroll)", type: "number", min: 0, max: 30 },
-          { key: "benefits_window_open", label: "Benefits enrolment window open", type: "bool" },
-        ]}
-      />
+      <Box id="policy-attendance-settings">
+        <SettingsForm
+          title="Attendance & geofencing"
+          subtitle="Shift timing, lateness, and how punches outside a geofence are handled"
+          policyActions
+          onNext={() => document.getElementById("policy-call-settings")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          fields={[
+            { key: "shift_start", label: "Shift starts", type: "time" },
+            { key: "late_after", label: "Late after", type: "time" },
+            { key: "shift_hours", label: "Shift hours (overtime above)", type: "number", min: 4, max: 12 },
+            { key: "geofence_enforcement", label: "Outside a geofence", type: "select", options: [["block", "Block the punch"], ["flag", "Allow and flag for the manager"], ["allow", "Allow silently"]] },
+            { key: "selfie_required_geo", label: "Selfie with web/mobile punches", type: "bool" },
+            { key: "biometric_device_verification", label: "Device biometric (fingerprint / face) on mobile", type: "bool" },
+            { key: "regularize_window_days", label: "Corrections allowed for (days)", type: "number", min: 1, max: 31 },
+          ]}
+        />
+      </Box>
+      <Box id="policy-call-settings">
+        <SettingsForm
+          title="Team call tracker"
+          subtitle="Targets for sales and support staff with call tracking switched on"
+          policyActions
+          onNext={() => document.getElementById("policy-assets-settings")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          fields={[
+            { key: "call_daily_target", label: "Calls a day", type: "number", min: 1, max: 300 },
+            { key: "call_talk_target_min", label: "Talk time a day (min)", type: "number", min: 1, max: 480 },
+            { key: "call_source", label: "Call source", type: "select", options: [["mobile_app", "Mobile app call log"], ["telephony", "Cloud telephony"], ["manual", "Manual entry"]] },
+          ]}
+        />
+      </Box>
+      <Box id="policy-assets-settings">
+        <SettingsForm
+          title="Assets, performance & benefits"
+          policyActions
+          onNext={onNext}
+          fields={[
+            { key: "asset_depreciation_years", label: "Depreciate assets over (years)", type: "number", min: 1, max: 10 },
+            { key: "merit_budget_pct", label: "Merit budget (% of payroll)", type: "number", min: 0, max: 30 },
+            { key: "benefits_window_open", label: "Benefits enrolment window open", type: "bool" },
+          ]}
+        />
+      </Box>
     </Stack>
   );
 }

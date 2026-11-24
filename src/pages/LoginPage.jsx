@@ -123,6 +123,8 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [newPw, setNewPw] = useState("");
   const [newPw2, setNewPw2] = useState("");
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showNewPw2, setShowNewPw2] = useState(false);
   const [fieldErr, setFieldErr] = useState({});
   const [confirmReset, setConfirmReset] = useState(false);
   // v10.8 server mode: which company (workspace) you sign in to; demo shortcuts only in the demo workspaces
@@ -428,9 +430,9 @@ export default function LoginPage() {
                 </Alert>
               )}
               <Stack spacing={2}>
-                <TextField label="New password" type="password" required value={newPw} onChange={(e) => setNewPw(e.target.value)} autoComplete="new-password" autoFocus />
+                <TextField label="New password" type={showNewPw ? "text" : "password"} required value={newPw} onChange={(e) => setNewPw(e.target.value)} autoComplete="new-password" autoFocus slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton onClick={() => setShowNewPw((v) => !v)} edge="end" aria-label={showNewPw ? "Hide password" : "Show password"} size="small">{showNewPw ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}</IconButton></InputAdornment> } }} />
                 <PasswordRules value={newPw} minLength={data.settings.password_min_length} />
-                <TextField label="Confirm new password" type="password" required value={newPw2} onChange={(e) => setNewPw2(e.target.value)} autoComplete="new-password" error={!!newPw2 && newPw !== newPw2} helperText={newPw2 && newPw !== newPw2 ? "Passwords do not match" : " "} />
+                <TextField label="Confirm new password" type={showNewPw2 ? "text" : "password"} required value={newPw2} onChange={(e) => setNewPw2(e.target.value)} autoComplete="new-password" error={!!newPw2 && newPw !== newPw2} helperText={newPw2 && newPw !== newPw2 ? "Passwords do not match" : " "} slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton onClick={() => setShowNewPw2((v) => !v)} edge="end" aria-label={showNewPw2 ? "Hide password" : "Show password"} size="small">{showNewPw2 ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}</IconButton></InputAdornment> } }} />
                 <Button type="submit" variant="contained" size="large" disabled={busy}>
                   Save password and sign in
                 </Button>

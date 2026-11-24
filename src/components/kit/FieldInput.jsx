@@ -1,8 +1,9 @@
 // Renders one employee-master field (from data/employeeFields.js) as the right control.
 import { useStore } from "../../store/AppStore.jsx";
 import { MASTER_ADD_VALUE, MasterAddDialog, canMasterAdd, masterAddItem } from "./MasterAdd.jsx";
-import React, { useState } from "react";
-import { FormControl, FormHelperText, InputAdornment, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import React, { useRef, useState } from "react";
+import { FormControl, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import { CalendarMonthRounded } from "@mui/icons-material";
 import { REGIONS, COUNTRIES, isRequired, RATE_UNIT } from "../../data/employeeFields.js";
 import { OPTION_LISTS } from "../../lib/optionLists.js";
 import ListSelect from "./ListSelect.jsx";
@@ -27,15 +28,16 @@ function PlainSelect({ f, label, value, onChange, disabled, error, ctx, rec }) {
   const [adding, setAdding] = useState(false);
   const opts = fieldOptions(f, rec, ctx);
   const v = value == null ? "" : String(value);
+  const nativeBloodGroup = f.key === "blood_group";
   const canAdd = canMasterAdd(user, f.key) && !disabled;
   return (
     <>
       <FormControl size="small" fullWidth disabled={disabled} error={!!error}>
         <InputLabel>{label}</InputLabel>
-        <Select label={label} value={opts.some(([o]) => String(o) === v) ? v : ""} onChange={(e) => (e.target.value === MASTER_ADD_VALUE ? setAdding(true) : onChange(e.target.value))} data-testid={`field-${f.key}`}>
-          {opts.map(([o, l]) => (
-            <MenuItem key={o} value={String(o)}>{l}</MenuItem>
-          ))}
+        <Select native={nativeBloodGroup} label={label} value={opts.some(([o]) => String(o) === v) ? v : ""} onChange={(e) => (e.target.value === MASTER_ADD_VALUE ? setAdding(true) : onChange(e.target.value))} data-testid={`field-${f.key}`}>
+          {nativeBloodGroup
+            ? [<option key="" value="">Choose blood group</option>, ...opts.map(([o, l]) => <option key={o} value={String(o)}>{l}</option>)]
+            : opts.map(([o, l]) => <MenuItem key={o} value={String(o)}>{l}</MenuItem>)}
           {canAdd && masterAddItem(f.key)}
         </Select>
         <FormHelperText>{error || " "}</FormHelperText>
@@ -47,6 +49,7 @@ function PlainSelect({ f, label, value, onChange, disabled, error, ctx, rec }) {
 
 export default function FieldInput({ f, value, onChange, disabled, error, ctx, rec }) {
   const label = `${f.label}${isRequired(f, rec || {}) ? " *" : ""}`;
+  const datePickerRef = useRef(null);
   // v10.3: country (and with it currency, tax engine and payslip) is frozen to the work location's country.
   const lockLoc = f.key === "country_code" && rec?.location_id ? (ctx?.locations || []).find((l) => l.location_id === rec.location_id) : null;
   if (lockLoc && ctx?.lockCountry !== false) {
@@ -60,6 +63,54 @@ export default function FieldInput({ f, value, onChange, disabled, error, ctx, r
     return <ListSelect listKey={f.key} base={fieldOptions(f, rec, ctx)} size="small" label={label} required={false} value={value == null ? "" : String(value)} onChange={onChange} disabled={disabled} error={!!error} helperText={error || " "} />;
   }
   if (f.type === "select") return <PlainSelect f={f} label={label} value={value} onChange={onChange} disabled={disabled} error={error} ctx={ctx} rec={rec} />;
+  if (f.key === "date_of_birth") {
+    const display = /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))
+      ? `${String(value).slice(8, 10)}-${String(value).slice(5, 7)}-${String(value).slice(0, 4)}`
+      : value || "";
+    const isoValue = /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : "";
+    return (
+      <>
+        <TextField
+          label={label}
+          value={display}
+          disabled={disabled}
+          placeholder="dd-mm-yyyy"
+          error={!!error}
+          helperText={error || " "}
+          onChange={(e) => {
+            const typed = e.target.value;
+            const match = typed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (!match) return onChange(typed);
+            const date = new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1])));
+            onChange(date.getUTCFullYear() === Number(match[3]) && date.getUTCMonth() === Number(match[2]) - 1 && date.getUTCDate() === Number(match[1])
+              ? `${match[3]}-${match[2]}-${match[1]}`
+              : typed);
+          }}
+          slotProps={{
+            input: { endAdornment: <InputAdornment position="end"><IconButton aria-label="Open date picker" size="small" disabled={disabled} onClick={() => datePickerRef.current?.showPicker?.()}><CalendarMonthRounded fontSize="small" /></IconButton></InputAdornment> },
+            htmlInput: { maxLength: 10, inputMode: "numeric" },
+          }}
+        />
+        <input ref={datePickerRef} type="date" value={isoValue} onChange={(e) => {
+          onChange(e.target.value);
+        }} disabled={disabled} aria-label="Date of birth calendar" style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+      </>
+    );
+  }
+  if (f.key === "pan") {
+    return (
+      <TextField
+        label={label}
+        value={value ?? ""}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        error={!!error}
+        helperText={error || " "}
+        placeholder="ABCDE1234F"
+        slotProps={{ htmlInput: { maxLength: 10 } }}
+      />
+    );
+  }
   return (
     <TextField
       label={label}

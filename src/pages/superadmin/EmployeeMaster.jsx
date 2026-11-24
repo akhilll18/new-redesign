@@ -9,7 +9,7 @@ import { useStore } from "../../store/AppStore.jsx";
 import { PageHeader, SectionCard, PersonCell, StatusChip, Mono, TableWrap, Tag } from "../../components/kit/UI.jsx";
 import FieldInput, { currencySymbol } from "../../components/kit/FieldInput.jsx";
 import { BgvChip, useBgvLookup } from "../../components/collab/BgvViews.jsx";
-import { EMPLOYEE_SECTIONS, ALL_FIELDS, COUNTRIES, WORKER_TYPES, WORKER_TYPE_BY, ON_PAYROLL, workerTypeOf, workerDefaults, isContingent, monthlyEquivalent, fieldApplies, sectionApplies, workerLabel } from "../../data/employeeFields.js";
+import { EMPLOYEE_SECTIONS, ALL_FIELDS, COUNTRIES, WORKER_TYPES, WORKER_TYPE_BY, ON_PAYROLL, workerTypeOf, workerDefaults, isContingent, monthlyEquivalent, fieldApplies, sectionApplies, workerLabel, validateEmployee } from "../../data/employeeFields.js";
 import { fmtDate, fmtNum, downloadCsv, isoDate } from "../../lib/utils.js";
 import { sectionsWithCustom, customFieldList } from "../../lib/customFields.js";
 
@@ -23,12 +23,14 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
   const [tab, setTab] = useState("core");
   const [errors, setErrors] = useState({});
   const [mkContract, setMkContract] = useState(true);
+  const [personalConfirmation, setPersonalConfirmation] = useState("");
   React.useEffect(() => {
     if (open) {
       setForm(rec ? { ...rec, worker_type: workerTypeOf(rec) } : newRecord());
       setErrors({});
       setTab("core");
       setMkContract(true);
+      setPersonalConfirmation("");
     }
   }, [open, rec]);
   const role = user.role === "superadmin" ? "super" : "admin";
@@ -39,6 +41,7 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
   const wt = WORKER_TYPE_BY[workerTypeOf(form)];
   const contingent = isContingent(form);
   const monthly = contingent ? monthlyEquivalent(form) : Number(form.monthly_gross) || 0;
+  const isFinalSection = sec.id === sections[sections.length - 1]?.id;
   const hasContract = !isNew && (data.contracts || []).some((c) => c.employee_code === rec.employee_code && !["terminated", "renewed", "rejected"].includes(c.status));
 
   function pickType(id) {
@@ -50,17 +53,38 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
   function save() {
     const payload = { ...form };
     delete payload.annual_ctc;
+    delete payload.personal_mobile;
+    if (payload.pan) payload.pan = String(payload.pan).trim().toUpperCase();
     if (!payload.login_id) payload.login_id = payload.email;
     if (payload.employment_type === "part_time" && payload.fte === "1") payload.fte = "0.5";
     if (payload.probation_end_date === undefined && payload.date_of_joining && ["permanent", "contract", "apprentice"].includes(workerTypeOf(payload))) payload.probation_end_date = isoDate(new Date(payload.date_of_joining).getTime() + 183 * 86400000);
     // Drop values of fields that do not apply to this worker type (e.g. PF for a freelancer).
     ALL_FIELDS.forEach((f) => { if (!fieldApplies(f, payload) && f.workers && payload[f.key] !== undefined && f.key !== "monthly_gross") payload[f.key] = ""; });
+    if (!isFinalSection) {
+      const currentFields = sec.fields.filter((f) => fieldApplies(f, payload));
+      const allErrors = validateEmployee(payload, { role: "super", employees: data.employees });
+      const currentErrors = Object.fromEntries(Object.entries(allErrors).filter(([key]) => currentFields.some((f) => f.key === key)));
+      currentFields.forEach((f) => {
+        if (f.custom && f.required && !String(payload[f.key] ?? "").trim()) currentErrors[f.key] = `${f.label} is required.`;
+      });
+      if (Object.keys(currentErrors).length) {
+        setErrors(currentErrors);
+        if (sec.id === "core") setPersonalConfirmation("");
+        return;
+      }
+      setErrors({});
+      if (sec.id === "core") setPersonalConfirmation("Personal details added");
+      const next = sections[sections.findIndex((s) => s.id === sec.id) + 1];
+      if (next) setTab(next.id);
+      return;
+    }
     const r = upsertEmployee(payload);
     if (!r.ok) {
       setErrors(r.errors);
       const first = sections.find((s) => s.fields.some((f) => r.errors[f.key]));
       if (first) setTab(first.id);
-      return notifyToast(`${Object.keys(r.errors).length} field(s) need attention.`, "error");
+      if (sec.id === "core") setPersonalConfirmation("");
+      return;
     }
     let extra = "";
     if (isContingent(payload) && mkContract && !hasContract) {
@@ -79,7 +103,7 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
       </DialogTitle>
       <Box sx={{ px: 3, borderBottom: "1px solid #edf0ec" }}>
         <Tabs value={sec.id} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
-          {sections.map((s) => <Tab key={s.id} value={s.id} label={`${s.title}${errCount(s) ? ` (${errCount(s)})` : ""}`} sx={{ fontSize: "0.7rem", color: errCount(s) ? "#d32f2f" : s.id === "engagement" ? "#315f49" : undefined, fontWeight: s.id === "engagement" ? 700 : undefined }} />)}
+          {sections.map((s) => <Tab key={s.id} value={s.id} label={`${s.title}${errCount(s) ? ` (${errCount(s)})` : ""}`} sx={{ fontSize: "0.7rem", color: errCount(s) ? "#9a6500" : s.id === "engagement" ? "#315f49" : undefined, fontWeight: s.id === "engagement" ? 700 : undefined }} />)}
         </Tabs>
       </Box>
       <DialogContent>
@@ -109,7 +133,24 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
             Monthly-equivalent cost <b>{currencySymbol(form)}{fmtNum(monthly)}</b> (used for CTC, budgets and analytics){form.pay_basis === "hourly" ? ` = rate × ${form.std_hours_week || 40} h × 52 ÷ 12` : form.pay_basis === "daily" ? " = day rate × days a week × 52 ÷ 12" : form.pay_basis === "milestone" ? " = total fee ÷ months of the engagement" : ""}. {hasContract ? "This worker already has a contract; change live terms there (Amend)." : ""}
           </Alert>
         )}
-        <Typography sx={{ fontSize: "0.6rem", color: "#78827b", mb: 1.5 }}>Source: {sec.source}. Fields marked * are required{contingent ? ` for a ${wt?.short.toLowerCase()} worker` : ""}.</Typography>
+        {personalConfirmation && <Typography sx={{ fontSize: "0.68rem", color: "#315f49", fontWeight: 700, mb: 1.2 }}>{personalConfirmation}</Typography>}
+        <Box sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+          {[
+            ["Personal details", personalConfirmation ? "done" : "active"],
+            ["Pending profile", personalConfirmation ? "active" : "pending"],
+            ["Contacts", tab === "contact" ? "active" : "pending"],
+            ["Employment", tab === "employment" ? "active" : "pending"],
+            ["Workforce", tab === "workforce" ? "active" : "pending"],
+          ].map(([label, status], index) => (
+            <React.Fragment key={label}>
+              {index > 0 && <Box sx={{ flex: 1, height: 1, bgcolor: "#dfe7e1" }} />}
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 58 }}>
+                <Box sx={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid", borderColor: status === "done" || status === "active" ? "#315f49" : "#b7c1ba", bgcolor: status === "done" ? "#315f49" : "#fff" }} />
+                <Typography sx={{ mt: 0.4, fontSize: "0.52rem", textAlign: "center", color: status === "pending" ? "#78827b" : "#315f49", fontWeight: status === "pending" ? 500 : 700 }}>{label}</Typography>
+              </Box>
+            </React.Fragment>
+          ))}
+        </Box>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, columnGap: 2, rowGap: 1.5 }}>
           {sec.fields.filter((f) => f.key !== "worker_type" && fieldApplies(f, form)).map((f) => {
             if (f.type === "calc") {
@@ -121,17 +162,31 @@ export function EmployeeFormDialog({ open, rec, onClose }) {
             const editable = isNew ? true : f.editableBy.includes(role) || (role === "super" && f.editableBy.length > 0);
             return (
               <Box key={f.key} sx={{ gridColumn: f.type === "textarea" ? "1 / -1" : undefined }}>
-                <FieldInput f={f} rec={form} ctx={ctx} value={form[f.key]} disabled={!editable} error={errors[f.key]} onChange={(v) => setForm((x) => ({ ...x, [f.key]: v, ...(f.key === "country_code" ? { region: "" } : {}), ...(f.key === "company_id" ? { location_id: "" } : {}), ...(f.key === "location_id" ? (() => { const l = ctx.locations.find((y) => y.location_id === v) || {}; return { company_id: l.company_id || x.company_id, ...(l.country && l.country !== x.country_code && data.settings.lock_country_to_location !== false ? { country_code: l.country, region: "" } : {}) }; })() : {}), ...(f.key === "gst_registered" && v === "no" ? { gstin: "" } : {}) }))} />
+                <FieldInput f={f} rec={form} ctx={ctx} value={form[f.key]} disabled={!editable} error={sec.id === "contact" ? undefined : errors[f.key]} onChange={(v) => {
+                  setErrors((current) => {
+                    const next = { ...current };
+                    delete next[f.key];
+                    if (["date_of_birth", "date_of_joining"].includes(f.key)) {
+                      delete next.date_of_birth;
+                      delete next.date_of_joining;
+                    }
+                    return next;
+                  });
+                  setForm((x) => ({ ...x, [f.key]: v, ...(f.key === "country_code" ? { region: "" } : {}), ...(f.key === "company_id" ? { location_id: "" } : {}), ...(f.key === "location_id" ? (() => { const l = ctx.locations.find((y) => y.location_id === v) || {}; return { company_id: l.company_id || x.company_id, primary_geofence: l.geofence_id || x.primary_geofence, ...(l.country && l.country !== x.country_code && data.settings.lock_country_to_location !== false ? { country_code: l.country, region: "" } : {}) }; })() : {}), ...(f.key === "gst_registered" && v === "no" ? { gstin: "" } : {}) }));
+                }} />
               </Box>
             );
           })}
         </Box>
+        {sec.id === "contact" && errCount(sec) > 0 && <Typography sx={{ mt: 1, fontSize: "0.62rem", color: "#6b7770" }}>Some contact details need attention. Please review and try again.</Typography>}
         {!isNew && role === "admin" && <Alert severity="info">Some fields are locked for HR admins and can only be changed by a Super Admin.</Alert>}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         {contingent && !hasContract && <FormControlLabel sx={{ mr: "auto" }} control={<Checkbox size="small" checked={mkContract} onChange={(e) => setMkContract(e.target.checked)} />} label={<Typography sx={{ fontSize: "0.66rem" }}>Create a draft contract from these terms</Typography>} />}
         <Button color="inherit" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={save}>{isNew ? (contingent ? `Create ${wt?.short.toLowerCase()} worker` : "Create employee") : "Save"}</Button>
+        {isFinalSection
+          ? <Button variant="contained" onClick={save}>{isNew ? "Save" : "Save Changes"}</Button>
+          : <><Button variant="outlined" onClick={save}>Save</Button><Button variant="contained" onClick={save}>Next</Button></>}
       </DialogActions>
     </Dialog>
   );

@@ -167,7 +167,6 @@ export default function EmployeeGlassHome({ classic, view = "glass", onView = ()
         <GlassStat label="IT tickets" value={myTickets.length} hint={myTickets.length ? "Open with IT support" : "No open tickets"} icon={<SupportAgentRounded />} tone="fog" onClick={() => navigate("/assets")} />
         <GlassStat label="Internal jobs" value={ijpOpen} hint="Open IJP postings · apply or move" icon={<WorkRounded />} onClick={() => navigate("/ijp")} />
         <GlassStat label="My requests" value={openReqs.length} hint={openReqs.length ? "Waiting for approval" : "Nothing pending"} icon={<ScheduleRounded />} tone={openReqs.length ? "saffron" : "mint"} onClick={() => navigate("/inbox")} />
-        {isManager && <GlassStat label="Approvals pending" value={pend.requests.length + pend.points.length} hint="My team → All approvals" icon={<ScheduleRounded />} tone="saffron" onClick={() => navigate("/team-approvals")} />}
         <GlassStat label="Meetings today" value={meetingsToday.length} hint={nextMeeting ? `Next ${new Date(nextMeeting.start).toTimeString().slice(0, 5)} · ${nextMeeting.title}` : meetingsToday.length ? "All done for today" : "Nothing booked today"} icon={<EventRounded />} tone="info" onClick={() => setMtgOpen(true)} />
       </GlassGrid>
       <TodayMeetingsDialog open={mtgOpen} onClose={() => setMtgOpen(false)} />

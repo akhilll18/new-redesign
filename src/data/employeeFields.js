@@ -31,7 +31,17 @@ export const COUNTRIES = [
   { code: "ZM", name: "Zambia", currency: "ZMW" },
 ];
 export const REGIONS = {
-  IN: [["TG", "Telangana"], ["KA", "Karnataka"], ["MH", "Maharashtra"]],
+  IN: [
+    ["AP", "Andhra Pradesh"], ["AR", "Arunachal Pradesh"], ["AS", "Assam"], ["BR", "Bihar"],
+    ["CG", "Chhattisgarh"], ["GA", "Goa"], ["GJ", "Gujarat"], ["HR", "Haryana"],
+    ["HP", "Himachal Pradesh"], ["JH", "Jharkhand"], ["KA", "Karnataka"], ["KL", "Kerala"],
+    ["MP", "Madhya Pradesh"], ["MH", "Maharashtra"], ["MN", "Manipur"], ["ML", "Meghalaya"],
+    ["MZ", "Mizoram"], ["NL", "Nagaland"], ["OD", "Odisha"], ["PB", "Punjab"],
+    ["RJ", "Rajasthan"], ["SK", "Sikkim"], ["TN", "Tamil Nadu"], ["TG", "Telangana"],
+    ["TR", "Tripura"], ["UP", "Uttar Pradesh"], ["UK", "Uttarakhand"], ["WB", "West Bengal"],
+    ["AN", "Andaman and Nicobar Islands"], ["CH", "Chandigarh"], ["DH", "Dadra and Nagar Haveli and Daman and Diu"],
+    ["DL", "Delhi"], ["JK", "Jammu and Kashmir"], ["LA", "Ladakh"], ["LD", "Lakshadweep"], ["PY", "Puducherry"],
+  ],
   GB: [["ENG", "England"], ["WLS", "Wales"], ["NIR", "Northern Ireland"], ["SCT", "Scotland"]],
   US: [["TX", "Texas"], ["FL", "Florida"], ["NY", "New York"], ["CA", "California"]],
   AE: [["DXB", "Dubai"], ["AUH", "Abu Dhabi"], ["SHJ", "Sharjah"]],
@@ -168,13 +178,12 @@ export const EMPLOYEE_SECTIONS = [
       { key: "login_id", label: "Login ID", type: "text", control: "Text input", rule: "Unique per user; defaults to the work email.", editableBy: ["super"], required: true },
       { key: "work_phone", label: "Work phone", type: "tel", control: "Phone input", rule: "+91 and 10 digits.", pattern: "^(\\+?91)?[6-9]\\d{9}$", editableBy: ["super", "admin"] },
       { key: "phone", label: "Mobile", type: "tel", control: "Phone input", rule: "+91 and 10 digits. Used for payout alerts.", pattern: "^(\\+?91)?[6-9]\\d{9}$", editableBy: ["super", "self"], required: true },
-      { key: "personal_mobile", label: "Personal mobile", type: "tel", control: "Phone input", rule: "Optional. +91 and 10 digits.", pattern: "^(\\+?91)?[6-9]\\d{9}$", editableBy: ["super", "self"] },
       { key: "personal_email", label: "Personal email", type: "email", control: "Text input", rule: "Optional. Valid email.", editableBy: ["super", "self"] },
+      { key: "blood_group", label: "Blood group", type: "select", options: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => [b, b]), control: "Dropdown", rule: "Optional.", editableBy: ["super", "self"] },
       { key: "current_address", label: "Current address", type: "textarea", control: "Text area", rule: "Max 300 characters.", max: 300, editableBy: ["super", "self"], required: true },
       { key: "permanent_address", label: "Permanent address", type: "textarea", control: "Text area", rule: "Max 300 characters.", max: 300, editableBy: ["super", "self"] },
-      { key: "blood_group", label: "Blood group", type: "select", options: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => [b, b]), control: "Dropdown", rule: "Optional.", editableBy: ["super", "self"] },
-      { key: "emergency_contact_name", label: "Emergency contact", type: "text", control: "Text input", rule: "Name and relationship.", max: 120, editableBy: ["super", "self"] },
-      { key: "emergency_contact_phone", label: "Emergency phone", type: "tel", control: "Phone input", rule: "+91 and 10 digits.", pattern: "^(\\+?91)?[6-9]\\d{9}$", editableBy: ["super", "self"] },
+      { key: "emergency_contact_name", label: "Emergency Contact Name", type: "text", control: "Text input", rule: "Emergency contact name.", max: 120, editableBy: ["super", "self"] },
+      { key: "emergency_contact_phone", label: "Emergency Contact Number", type: "tel", control: "Phone input", rule: "+91 and 10 digits.", pattern: "^(\\+?91)?[6-9]\\d{9}$", editableBy: ["super", "self"] },
     ],
   },
   {
@@ -207,7 +216,6 @@ export const EMPLOYEE_SECTIONS = [
       { key: "biometric_id", label: "Biometric enrolment ID", type: "text", control: "Text input", rule: "User ID on the attendance terminals (digits). Blank = not enrolled.", pattern: "^\\d{1,8}$", editableBy: ["super", "admin"] },
       { key: "call_tracking", label: "Call tracking", type: "select", options: [["no", "No"], ["yes", "Yes"]], control: "Dropdown", rule: "Yes adds the call log and includes the person in team call reports.", editableBy: ["super", "admin"], required: true },
       { key: "last_promotion", label: "Last promotion date", type: "date", control: "Date picker", rule: "Used in the flight-risk score.", editableBy: ["super", "admin"] },
-      { key: "potential", label: "Potential (9-box)", type: "select", options: [["1", "1 · Low"], ["2", "2 · Medium"], ["3", "3 · High"]], control: "Dropdown", rule: "Set during calibration; places the person on the 9-box grid.", editableBy: ["super", "admin"] },
     ],
   },
   {
@@ -293,6 +301,7 @@ export function validateEmployee(rec, { role, employees = [] }) {
   }
   if (rec.probation_end_date && rec.date_of_joining && rec.probation_end_date < rec.date_of_joining) errors.probation_end_date = "Probation cannot end before the date of joining.";
   if (rec.reporting_manager && rec.reporting_manager === rec.employee_code) errors.reporting_manager = "An employee cannot report to themselves.";
+  if (rec.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(String(rec.pan).trim().toUpperCase())) errors.pan = "Enter a valid PAN in AAAAA9999A format.";
   if (role === "super" && rec.login_id) {
     const clash = employees.find((e) => e.login_id?.toLowerCase() === String(rec.login_id).toLowerCase() && e.employee_code !== rec.employee_code);
     if (clash) errors.login_id = `Already used by ${clash.full_name}.`;

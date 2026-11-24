@@ -1,7 +1,7 @@
 // Super Admin: approval workflow per module, leave policy, expense policy, holidays, and the points masters.
-import React, { useState } from "react";
-import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormGroup, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Stack, Switch, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
-import { AddRounded, DeleteOutlineRounded, SaveRounded, ArrowForwardRounded, AccountTreeRounded } from "@mui/icons-material";
+import React, { useRef, useState } from "react";
+import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormGroup, FormControlLabel, IconButton, InputAdornment, InputLabel, MenuItem, Select, Stack, Switch, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
+import { AddRounded, CalendarMonthRounded, DeleteOutlineRounded, SaveRounded, ArrowForwardRounded, AccountTreeRounded } from "@mui/icons-material";
 import { WorkforcePolicies } from "./OpsSuper.jsx";
 import { useStore } from "../../store/AppStore.jsx";
 import { PageHeader, SectionCard, TableWrap, Mono } from "../../components/kit/UI.jsx";
@@ -138,12 +138,27 @@ function ChainBuilder({ open, forType, onClose, onAdd }) {
   );
 }
 
-function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow, keyField }) {
+function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow, keyField, onNext }) {
   const [rows, setRows] = useState(initial);
   const [err, setErr] = useState("");
+  const dateRefs = useRef([]);
   const set = (i, k, v) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  const dateDisplay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? `${v.slice(8, 10)}-${v.slice(5, 7)}-${v.slice(0, 4)}` : v || "";
+  const dateValue = (v) => {
+    const m = String(v).match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!m) return v;
+    const d = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
+    return d.getUTCFullYear() === Number(m[3]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[1])
+      ? `${m[3]}-${m[2]}-${m[1]}`
+      : v;
+  };
+  const save = () => {
+    const e = onSave(rows);
+    setErr(e || "");
+    return !e;
+  };
   return (
-    <SectionCard title={title} subtitle={subtitle} action={<Stack direction="row" spacing={1}><Button size="small" startIcon={<AddRounded />} onClick={() => setRows([...rows, newRow()])}>Add</Button><Button size="small" variant="contained" startIcon={<SaveRounded />} onClick={() => { const e = onSave(rows); setErr(e || ""); }}>Save</Button></Stack>} noPad>
+    <SectionCard title={title} subtitle={subtitle} action={<Stack direction="row" spacing={1}><Button size="small" startIcon={<AddRounded />} onClick={() => setRows([...rows, newRow()])}>Add</Button></Stack>} noPad>
       {err && <Alert severity="error" sx={{ m: 1.5 }}>{err}</Alert>}
       <TableWrap>
         <Table size="small" sx={{ minWidth: 760 }}>
@@ -157,8 +172,14 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
                       <Switch size="small" checked={!!r[c.key]} onChange={(e) => set(i, c.key, e.target.checked)} />
                     ) : c.type === "select" ? (
                       <Select size="small" value={r[c.key] ?? ""} onChange={(e) => set(i, c.key, e.target.value)} sx={{ fontSize: "0.65rem", minWidth: 110 }}>{c.options.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}</Select>
+                    ) : c.type === "date" ? (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.3 }}>
+                        <TextField size="small" placeholder="dd-mm-yyyy" value={dateDisplay(r[c.key])} onChange={(e) => set(i, c.key, dateValue(e.target.value))} slotProps={{ htmlInput: { maxLength: 10, inputMode: "numeric", style: { fontSize: "0.65rem" } } }} />
+                        <IconButton size="small" aria-label="Choose holiday date" onClick={() => dateRefs.current[i]?.showPicker?.()}><CalendarMonthRounded fontSize="small" /></IconButton>
+                        <input ref={(el) => { dateRefs.current[i] = el; }} type="date" value={/^\d{4}-\d{2}-\d{2}$/.test(String(r[c.key] || "")) ? r[c.key] : ""} onChange={(e) => set(i, c.key, e.target.value)} aria-label="Holiday date picker" style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+                      </Box>
                     ) : c.readOnlyExisting && i < initial.length ? (
-                      <Mono>{r[c.key]}</Mono>
+                      <Mono>{c.type === "date" ? dateDisplay(r[c.key]) : r[c.key]}</Mono>
                     ) : (
                       <TextField size="small" type={c.type === "date" ? "date" : "text"} value={r[c.key] ?? ""} onChange={(e) => set(i, c.key, c.type === "number" ? (e.target.value === "" ? "" : e.target.value.replace(/[^\d]/g, "")) : e.target.value)} slotProps={{ htmlInput: { style: { fontSize: "0.65rem", textAlign: c.type === "number" ? "right" : "left" } } }} />
                     )}
@@ -170,28 +191,34 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
           </TableBody>
         </Table>
       </TableWrap>
+      <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ p: 1.5 }}>
+        <Button color="inherit" onClick={() => { setRows(initial); setErr(""); }}>Cancel</Button>
+        <Button variant="contained" startIcon={<SaveRounded />} onClick={save}>Save</Button>
+        {onNext && <Button variant="outlined" endIcon={<ArrowForwardRounded />} onClick={() => { if (save()) onNext(); }}>Next</Button>}
+      </Stack>
     </SectionCard>
   );
 }
 
 export default function PoliciesPage() {
-  const { data, updateMaster, notifyToast } = useStore();
+  const { data, updateMaster, notifyToast, user } = useStore();
+  const isAdmin = user.role === "admin";
   const [tab, setTab] = useState("workflow");
+  const visibleTab = ["workflow", "leave", "expense", "workforce", "holidays"].includes(tab) ? tab : "workflow";
   return (
     <>
-      <PageHeader eyebrow="SUPER ADMIN · CONFIGURATION" title="Policies & rules" subtitle="Approval chains, leave and expense policies and holidays. Every save is written to the audit log." />
+      <PageHeader eyebrow={isAdmin ? "HR ADMIN · CONFIGURATION" : "SUPER ADMIN · CONFIGURATION"} title="Policies & rules" subtitle="Leave and expense policies, holidays, attendance, calls and assets. Every save is written to the audit log." />
       <Box sx={{ mb: 2, borderBottom: "1px solid #e5eae4" }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
+        <Tabs value={visibleTab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
           <Tab value="workflow" label="Approval workflow" sx={{ fontSize: "0.7rem" }} />
           <Tab value="leave" label="Leave policy" sx={{ fontSize: "0.7rem" }} />
           <Tab value="expense" label="Expense policy" sx={{ fontSize: "0.7rem" }} />
-          <Tab value="holidays" label="Holidays" sx={{ fontSize: "0.7rem" }} />
           <Tab value="workforce" label="Attendance, calls & assets" sx={{ fontSize: "0.7rem" }} />
+          <Tab value="holidays" label="Holidays" sx={{ fontSize: "0.7rem" }} />
         </Tabs>
       </Box>
-      {tab === "workflow" && <Workflow />}
-      {tab === "workforce" && <WorkforcePolicies />}
-      {tab === "leave" && (
+      {visibleTab === "workflow" && <Workflow />}
+      {visibleTab === "leave" && (
         <EditableTable
           title="Leave types"
           subtitle="Annual entitlement is pro-rated for joiners. Blank “Per year” means unpaid (Loss of pay)."
@@ -206,7 +233,6 @@ export default function PoliciesPage() {
             { key: "min_notice_days", label: "Notice (days)", type: "number" },
             { key: "doc_after_days", label: "Certificate after (days)", type: "number" },
             { key: "floater_only", label: "Floater only", type: "bool" },
-            { key: "active", label: "Active", type: "bool" },
           ]}
           onSave={(rows) => {
             if (rows.some((r) => !r.code || !r.name)) return "Every leave type needs a code and a name.";
@@ -215,9 +241,10 @@ export default function PoliciesPage() {
             notifyToast("Leave policy saved.");
             return "";
           }}
+          onNext={() => setTab("expense")}
         />
       )}
-      {tab === "expense" && (
+      {visibleTab === "expense" && (
         <EditableTable
           title="Expense categories"
           subtitle="Limit applies per expense line. Receipts are always needed where marked, otherwise above the receipt threshold in System settings."
@@ -238,26 +265,28 @@ export default function PoliciesPage() {
           }}
         />
       )}
-      {tab === "holidays" && (
+      {visibleTab === "holidays" && (
         <EditableTable
           title="Holiday calendar"
           subtitle="Holidays are excluded from leave days. Floater holidays can be taken with Floater leave."
           keyField="date"
           rows={data.holidays}
-          newRow={() => ({ date: "", name: "", type: "holiday" })}
+          newRow={() => ({ date: "", name: "", type: "holiday", active: true })}
           columns={[
             { key: "date", label: "Date", type: "date", width: 150 },
             { key: "name", label: "Name", width: 200 },
-            { key: "type", label: "Type", type: "select", options: [["holiday", "Holiday"], ["floater", "Floater"]] },
+            { key: "type", label: "Type", type: "select", options: [["holiday", "Holiday"], ["optional", "Optional"], ["floater", "Floater"]] },
           ]}
           onSave={(rows) => {
-            if (rows.some((r) => !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || !r.name)) return "Each holiday needs a date and a name.";
+            if (rows.some((r) => !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || !r.name || !["holiday", "optional", "floater"].includes(r.type))) return "Each holiday needs a valid date, name and type.";
             updateMaster("holidays", [...rows].sort((a, b) => a.date.localeCompare(b.date)));
             notifyToast("Holiday calendar saved.");
             return "";
           }}
+          onNext={() => setTab("workforce")}
         />
       )}
+      {visibleTab === "workforce" && <WorkforcePolicies onNext={() => setTab("holidays")} />}
       <FormControlLabel sx={{ display: "none" }} control={<Switch />} label="" />
     </>
   );

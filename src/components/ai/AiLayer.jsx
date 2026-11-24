@@ -3,7 +3,6 @@ import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore, ROLE_LABEL } from "../../store/AppStore.jsx";
 import { navFor, navScreens } from "../../data/roleNav.js";
-import AiFieldAssist from "./AiFieldAssist.jsx";
 import AiSelection from "./AiSelection.jsx";
 import AiCopilot from "./AiCopilot.jsx";
 
@@ -29,7 +28,6 @@ export default function AiLayer() {
   if (!user) return null;
   return (
     <>
-      <AiFieldAssist page={page} />
       <AiSelection page={page} />
       <AiCopilot store={store} route={route} onNavigate={onNavigate} nav={nav} />
     </>

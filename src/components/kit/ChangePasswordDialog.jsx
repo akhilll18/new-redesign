@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography, Alert } from "@mui/material";
-import { CheckCircleRounded, RadioButtonUncheckedRounded } from "@mui/icons-material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, Stack, TextField, Typography, Alert } from "@mui/material";
+import { CheckCircleRounded, RadioButtonUncheckedRounded, VisibilityRounded, VisibilityOffRounded } from "@mui/icons-material";
 import { useStore } from "../../store/AppStore.jsx";
 import { passwordProblems } from "../../lib/validation.js";
 
@@ -28,6 +28,8 @@ export default function ChangePasswordDialog({ open, onClose }) {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [showNext, setShowNext] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const min = data.settings.password_min_length;
 
   async function submit() {
@@ -50,9 +52,9 @@ export default function ChangePasswordDialog({ open, onClose }) {
         <Stack spacing={2} sx={{ pt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField label="Current password" type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
-          <TextField label="New password" type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+          <TextField label="New password" type={showNext ? "text" : "password"} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton onClick={() => setShowNext((v) => !v)} edge="end" aria-label={showNext ? "Hide password" : "Show password"} size="small">{showNext ? <VisibilityOffRounded fontSize="small" /> : <VisibilityRounded fontSize="small" />}</IconButton></InputAdornment> } }} />
           <PasswordRules value={next} minLength={min} />
-          <TextField label="Confirm new password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+          <TextField label="Confirm new password" type={showConfirm ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton onClick={() => setShowConfirm((v) => !v)} edge="end" aria-label={showConfirm ? "Hide password" : "Show password"} size="small">{showConfirm ? <VisibilityOffRounded fontSize="small" /> : <VisibilityRounded fontSize="small" />}</IconButton></InputAdornment> } }} />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

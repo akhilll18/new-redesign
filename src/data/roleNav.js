@@ -185,9 +185,11 @@ export const ROLE_NAV = {
         { id: "attendance-admin", label: "Time & attendance", module: "attendance" },
         { id: "live-board", label: "Live board, roster & monitoring", modules: ["attendance", "workforce", "payroll"], alias: ["shifts", "timesheets", "monitoring"] },
         { id: "workforce", label: "Workforce management", module: "workforce" },
-        { id: "leave-rules", label: "Leave rule-sets", module: "leave" },
         { id: "live-map", label: "Geofencing & live location", module: "location" },
         { id: "calls-admin", label: "Call tracker", module: "calls" },
+      ] },
+      { id: "access-hub", label: "Policies & rules", icon: "Policy", hrOnly: true, tabs: [
+        { id: "policies", label: "Policies & rules" },
       ] },
       { id: "reports-hub", label: "Reports & AI automation", icon: "Insights", badges: ["automation"], tabs: [
         { id: "reports", label: "Reports" },
