@@ -11,15 +11,15 @@ import { REQUEST_TYPES, CHAIN_TOKENS, STANDARD_CHAINS, chainOptions, chainLabel,
 function Workflow() {
   const { data, updateSettings, notifyToast } = useStore();
   // v10.11: who fills each admin step today. Steps are wired automatically when the Super Admin creates an admin.
-  const approversFor = (module) => { const a = (data.admins || []).filter((x) => x.status === "active" && x.modules.includes(module) && x.permissions_scope.includes("approve")); return a.length ? a.map((x) => `${x.full_name} (${x.admin_code})`).join(", ") : "no admin yet — the Super Admin approves until one is created"; };
+  const approversFor = (module) => { const a = (data.admins || []).filter((x) => x?.status === "active" && (x.modules || []).includes(module) && (x.permissions_scope || []).includes("approve")); return a.length ? a.map((x) => `${x.full_name} (${x.admin_code})`).join(", ") : "no admin yet — the Super Admin approves until one is created"; };
   // v10.11: every request type is listed (new ones start on their default chain), including asset purchase and IT support.
-  const [wf, setWf] = useState(() => ({ ...Object.fromEntries(Object.keys(REQUEST_TYPES).map((m) => [m, defaultChain(m)])), ...data.settings.workflow }));
+  const [wf, setWf] = useState(() => ({ ...Object.fromEntries(Object.keys(REQUEST_TYPES).map((m) => [m, defaultChain(m)])), ...(data.settings?.workflow || {}) }));
   // v10.12: the Super Admin's own chains, offered on every request type next to the standard ones
-  const custom = data.settings.custom_chains || [];
+  const custom = data.settings?.custom_chains || [];
   const [builder, setBuilder] = useState(false);
   const opts = (m) => chainOptions(m, { custom, keep: wf[m] });
   const removeCustom = (c) => {
-    const used = Object.keys(REQUEST_TYPES).filter((m) => (data.settings.workflow?.[m] || defaultChain(m)) === c || wf[m] === c);
+    const used = Object.keys(REQUEST_TYPES).filter((m) => (data.settings?.workflow?.[m] || defaultChain(m)) === c || wf[m] === c);
     if (used.length) return notifyToast(`In use for ${used.map((m) => REQUEST_TYPES[m].label).join(", ")}. Choose another chain there first.`, "error");
     updateSettings({ custom_chains: custom.filter((x) => x !== c) });
     notifyToast("Approval chain removed.");
@@ -141,8 +141,13 @@ function ChainBuilder({ open, forType, onClose, onAdd }) {
 function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow, keyField, onNext }) {
   const [rows, setRows] = useState(initial);
   const [err, setErr] = useState("");
+  const [addingIndex, setAddingIndex] = useState(null);
+  const [activeEditIndex, setActiveEditIndex] = useState(null);
   const dateRefs = useRef([]);
-  const set = (i, k, v) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  const set = (i, k, v) => {
+    setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+    setActiveEditIndex(i);
+  };
   const dateDisplay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? `${v.slice(8, 10)}-${v.slice(5, 7)}-${v.slice(0, 4)}` : v || "";
   const dateValue = (v) => {
     const m = String(v).match(/^(\d{2})-(\d{2})-(\d{4})$/);
@@ -155,10 +160,32 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
   const save = () => {
     const e = onSave(rows);
     setErr(e || "");
+    if (!e) {
+      setAddingIndex(null);
+      setActiveEditIndex(null);
+    }
     return !e;
   };
+  const removeRow = (i) => {
+    const nextRows = rows.filter((_, j) => j !== i);
+    if (i === addingIndex) {
+      setRows(nextRows);
+      setAddingIndex(null);
+      setActiveEditIndex(null);
+      setErr("");
+      return;
+    }
+    const e = onSave(nextRows);
+    setErr(e || "");
+    if (!e) {
+      setRows(nextRows);
+      setAddingIndex(null);
+      setActiveEditIndex(null);
+    }
+  };
+  const rowDisabled = (i) => (addingIndex !== null && addingIndex !== i) || (activeEditIndex !== null && activeEditIndex !== i);
   return (
-    <SectionCard title={title} subtitle={subtitle} action={<Stack direction="row" spacing={1}><Button size="small" startIcon={<AddRounded />} onClick={() => setRows([...rows, newRow()])}>Add</Button></Stack>} noPad>
+    <SectionCard title={title} subtitle={subtitle} action={<Stack direction="row" spacing={1}><Button size="small" startIcon={<AddRounded />} disabled={addingIndex !== null || activeEditIndex !== null} onClick={() => { setAddingIndex(rows.length); setRows([...rows, newRow()]); setErr(""); }}>Add</Button></Stack>} noPad>
       {err && <Alert severity="error" sx={{ m: 1.5 }}>{err}</Alert>}
       <TableWrap>
         <Table size="small" sx={{ minWidth: 760 }}>
@@ -169,33 +196,42 @@ function EditableTable({ title, subtitle, rows: initial, columns, onSave, newRow
                 {columns.map((c) => (
                   <TableCell key={c.key} sx={{ minWidth: c.width || 90 }}>
                     {c.type === "bool" ? (
-                      <Switch size="small" checked={!!r[c.key]} onChange={(e) => set(i, c.key, e.target.checked)} />
+                      <Switch size="small" checked={!!r[c.key]} disabled={rowDisabled(i)} onChange={(e) => set(i, c.key, e.target.checked)} />
                     ) : c.type === "select" ? (
-                      <Select size="small" value={r[c.key] ?? ""} onChange={(e) => set(i, c.key, e.target.value)} sx={{ fontSize: "0.65rem", minWidth: 110 }}>{c.options.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}</Select>
+                      <Select size="small" value={r[c.key] ?? ""} disabled={rowDisabled(i)} onChange={(e) => set(i, c.key, e.target.value)} sx={{ fontSize: "0.65rem", minWidth: 110 }}>{c.options.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}</Select>
                     ) : c.type === "date" ? (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.3 }}>
-                        <TextField size="small" placeholder="dd-mm-yyyy" value={dateDisplay(r[c.key])} onChange={(e) => set(i, c.key, dateValue(e.target.value))} slotProps={{ htmlInput: { maxLength: 10, inputMode: "numeric", style: { fontSize: "0.65rem" } } }} />
-                        <IconButton size="small" aria-label="Choose holiday date" onClick={() => dateRefs.current[i]?.showPicker?.()}><CalendarMonthRounded fontSize="small" /></IconButton>
-                        <input ref={(el) => { dateRefs.current[i] = el; }} type="date" value={/^\d{4}-\d{2}-\d{2}$/.test(String(r[c.key] || "")) ? r[c.key] : ""} onChange={(e) => set(i, c.key, e.target.value)} aria-label="Holiday date picker" style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+                        <TextField size="small" placeholder="dd-mm-yyyy" value={dateDisplay(r[c.key])} disabled={rowDisabled(i)} onChange={(e) => set(i, c.key, dateValue(e.target.value))} slotProps={{ htmlInput: { maxLength: 10, inputMode: "numeric", style: { fontSize: "0.65rem" } } }} />
+                        <IconButton size="small" aria-label="Choose holiday date" disabled={rowDisabled(i)} onClick={() => dateRefs.current[i]?.showPicker?.()}><CalendarMonthRounded fontSize="small" /></IconButton>
+                        <input ref={(el) => { dateRefs.current[i] = el; }} type="date" disabled={rowDisabled(i)} value={/^\d{4}-\d{2}-\d{2}$/.test(String(r[c.key] || "")) ? r[c.key] : ""} onChange={(e) => set(i, c.key, e.target.value)} aria-label="Holiday date picker" style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
                       </Box>
                     ) : c.readOnlyExisting && i < initial.length ? (
                       <Mono>{c.type === "date" ? dateDisplay(r[c.key]) : r[c.key]}</Mono>
                     ) : (
-                      <TextField size="small" type={c.type === "date" ? "date" : "text"} value={r[c.key] ?? ""} onChange={(e) => set(i, c.key, c.type === "number" ? (e.target.value === "" ? "" : e.target.value.replace(/[^\d]/g, "")) : e.target.value)} slotProps={{ htmlInput: { style: { fontSize: "0.65rem", textAlign: c.type === "number" ? "right" : "left" } } }} />
+                      <TextField size="small" type={c.type === "date" ? "date" : "text"} value={r[c.key] ?? ""} disabled={rowDisabled(i)} onChange={(e) => set(i, c.key, c.type === "number" ? (e.target.value === "" ? "" : e.target.value.replace(/[^\d]/g, "")) : e.target.value)} slotProps={{ htmlInput: { style: { fontSize: "0.65rem", textAlign: c.type === "number" ? "right" : "left" } } }} />
                     )}
                   </TableCell>
                 ))}
-                <TableCell><IconButton size="small" aria-label="Remove row" onClick={() => setRows(rows.filter((_, j) => j !== i))}><DeleteOutlineRounded fontSize="small" /></IconButton></TableCell>
+                <TableCell>
+                  {activeEditIndex === i && (
+                    <Stack direction="row" spacing={0.5}>
+                      <Button size="small" color="error" startIcon={<DeleteOutlineRounded />} onClick={() => removeRow(i)}>Delete</Button>
+                      <Button size="small" variant="contained" startIcon={<SaveRounded />} onClick={save}>Save</Button>
+                    </Stack>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableWrap>
-      <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ p: 1.5 }}>
-        <Button color="inherit" onClick={() => { setRows(initial); setErr(""); }}>Cancel</Button>
-        <Button variant="contained" startIcon={<SaveRounded />} onClick={save}>Save</Button>
-        {onNext && <Button variant="outlined" endIcon={<ArrowForwardRounded />} onClick={() => { if (save()) onNext(); }}>Next</Button>}
-      </Stack>
+      {addingIndex !== null && activeEditIndex === null && (
+        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ p: 1.5 }}>
+          <Button color="inherit" onClick={() => { setRows(rows.filter((_, i) => i !== addingIndex)); setAddingIndex(null); setErr(""); }}>Cancel</Button>
+          <Button variant="contained" startIcon={<SaveRounded />} onClick={save}>Save</Button>
+          {onNext && <Button variant="outlined" endIcon={<ArrowForwardRounded />} onClick={() => { if (save()) onNext(); }}>Next</Button>}
+        </Stack>
+      )}
     </SectionCard>
   );
 }
@@ -209,7 +245,7 @@ export default function PoliciesPage() {
     <>
       <PageHeader eyebrow={isAdmin ? "HR ADMIN · CONFIGURATION" : "SUPER ADMIN · CONFIGURATION"} title="Policies & rules" subtitle="Leave and expense policies, holidays, attendance, calls and assets. Every save is written to the audit log." />
       <Box sx={{ mb: 2, borderBottom: "1px solid #e5eae4" }}>
-        <Tabs value={visibleTab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
+        <Tabs value={visibleTab} onChange={(_, v) => setTab(v)} variant="fullWidth">
           <Tab value="workflow" label="Approval workflow" sx={{ fontSize: "0.7rem" }} />
           <Tab value="leave" label="Leave policy" sx={{ fontSize: "0.7rem" }} />
           <Tab value="expense" label="Expense policy" sx={{ fontSize: "0.7rem" }} />
